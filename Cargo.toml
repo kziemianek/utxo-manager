@@ -1,0 +1,12 @@
+[package]
+name = "utxo-manager"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+serde = { version = "1.0.137", features = ["serde_derive"]}
+serde_json = "1.0.81"
+clap = "2.33.0"
