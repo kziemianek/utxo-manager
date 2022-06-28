@@ -1,16 +1,16 @@
-use std::{io, thread};
 use std::sync::mpsc;
+use std::{io, thread};
 
-use std::time::{Duration, Instant};
-use clap::{App, Arg, ArgMatches};
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant};
 
 use tui::backend::{Backend, CrosstermBackend};
-use tui::{Frame, Terminal};
 use tui::widgets::{Block, Borders, List, ListItem, ListState};
+use tui::{Frame, Terminal};
 
+use crate::cli::read_cli;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
@@ -18,6 +18,8 @@ use crossterm::{
 use serde_json::json;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
+
+mod cli;
 
 enum AppEvent<I> {
     Input(I),
@@ -43,12 +45,11 @@ struct Unspent {
     vout: u8,
 }
 
-
 struct Options {
     rpc_host: String,
     rpc_port: String,
     rpc_user: String,
-    rpc_pass: String
+    rpc_pass: String,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -85,14 +86,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let unspents = get_unspents(&options);
     let mut utxo_list_state = ListState::default();
 
-
     loop {
-        let list_items: Vec<ListItem> = unspents.iter().map(|u| {
-            ListItem::new(u.txid.to_owned())
-        }).collect();
-        terminal.draw(|f| {
-            ui(f, list_items, &mut utxo_list_state)
-        })?;
+        let list_items: Vec<ListItem> = unspents
+            .iter()
+            .map(|u| ListItem::new(u.txid.to_owned()))
+            .collect();
+        terminal.draw(|f| ui(f, list_items, &mut utxo_list_state))?;
 
         match rx.recv()? {
             AppEvent::Input(event) => match event.code {
@@ -113,12 +112,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut next_idx;
                             if idx == unspents.len() {
                                 next_idx = 0;
-                            }else {
+                            } else {
                                 next_idx = idx + 1;
                             }
                             utxo_list_state.select(Some(next_idx))
-                        },
-                        Option::None => utxo_list_state.select(Some(0))
+                        }
+                        Option::None => utxo_list_state.select(Some(0)),
                     }
                 }
                 KeyCode::Up => {
@@ -129,17 +128,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut next_idx;
                             if idx == 0 {
                                 next_idx = unspents.len();
-                            }else {
+                            } else {
                                 next_idx = idx - 1;
                             }
                             utxo_list_state.select(Some(next_idx))
-                        },
-                        Option::None => utxo_list_state.select(Some(total_items - 1))
+                        }
+                        Option::None => utxo_list_state.select(Some(total_items - 1)),
                     }
                 }
-                KeyCode::Char('l') => {
-                    lock_unspent(&unspents.get(utxo_list_state.selected().unwrap()).unwrap(), &options)
-                }
+                KeyCode::Char('l') => lock_unspent(
+                    &unspents.get(utxo_list_state.selected().unwrap()).unwrap(),
+                    &options,
+                ),
                 KeyCode::Char('r') => {
                     println!("refresh")
                 }
@@ -148,7 +148,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             AppEvent::Tick => {}
         }
     }
-
 
     thread::sleep(Duration::from_millis(5000));
 
@@ -163,77 +162,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn read_cli() -> Options {
-    let matches = App::new("lock-unspents")
-        .version("0.1.0")
-        .author("Kasper Ziemianek <kasper.ziemianek@gmail.com>")
-        .about("Manager your btc unspents!")
-        .arg(
-            Arg::with_name("host")
-                .short("h")
-                .long("rpc-host")
-                .value_name("HOST")
-                .help("Node rpc host")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("port")
-                .short("p")
-                .long("rpc-port")
-                .value_name("PORT")
-                .help("Node rpc port")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("rpc-user")
-                .long("rpc-user")
-                .value_name("RPC_USER")
-                .help("Node rpc user")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("rpc-password")
-                .long("rpc-password")
-                .value_name("RPC_PASSWORD")
-                .help("Node rpc password")
-                .takes_value(true)
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("omit-tx")
-                .long("omit-tx")
-                .value_name("TX_TO_OMIT")
-                .help("tx id to omit")
-                .takes_value(true),
-        )
-        .get_matches();
-
-    let rpc_host = get_argument(&matches, "host");
-    let rpc_port = get_argument(&matches, "port");
-    let rpc_user = get_argument(&matches, "rpc-user");
-    let rpc_pass = get_argument(&matches, "rpc-password");
-
-    Options {
-        rpc_host, rpc_port, rpc_user, rpc_pass
-    }
-}
-
 fn ui<B: Backend>(f: &mut Frame<B>, items: Vec<ListItem>, list_state: &mut ListState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(
-            [
-                Constraint::Percentage(100)
-            ]
-                .as_ref(),
-        )
+        .constraints([Constraint::Percentage(100)].as_ref())
         .split(f.size());
 
     let list = List::new(items)
-        .block(Block::default().title("Current unspents").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title("Current unspents")
+                .borders(Borders::ALL),
+        )
         .style(Style::default().fg(Color::White))
         .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
         .highlight_symbol(">>");
@@ -289,29 +229,24 @@ fn lock_unspent(unspent: &Unspent, options: &Options) {
     let client = reqwest::blocking::Client::new();
     let node_url = "http://".to_owned() + &options.rpc_host + ":" + &options.rpc_port + "/";
 
-
     let mut json = serde_json::Value::default();
-        json["txid"] = json!(unspent.txid);
-        json["vout"] = json!(unspent.vout);
+    json["txid"] = json!(unspent.txid);
+    json["vout"] = json!(unspent.vout);
 
-        let list_unspent = RpcMethod {
-            jsonrpc: "1.0".to_owned(),
-            id: "lock-unspents".to_owned(),
-            method: "lockunspent".to_owned(),
-            params: serde_json::Value::Array(vec![
-                json!(false),
-                serde_json::Value::Array(vec![json]),
-            ]),
-        };
-        let req = serde_json::to_string(&list_unspent).unwrap();
-        client
-            .post(&node_url)
-            .basic_auth(options.rpc_user.to_owned(), Some(options.rpc_pass.to_owned()))
-            .body(req)
-            .send()
-            .unwrap();
-}
-
-fn get_argument(matches: &ArgMatches, name: &str) -> String {
-    matches.value_of(name).unwrap().to_owned()
+    let list_unspent = RpcMethod {
+        jsonrpc: "1.0".to_owned(),
+        id: "lock-unspents".to_owned(),
+        method: "lockunspent".to_owned(),
+        params: serde_json::Value::Array(vec![json!(false), serde_json::Value::Array(vec![json])]),
+    };
+    let req = serde_json::to_string(&list_unspent).unwrap();
+    client
+        .post(&node_url)
+        .basic_auth(
+            options.rpc_user.to_owned(),
+            Some(options.rpc_pass.to_owned()),
+        )
+        .body(req)
+        .send()
+        .unwrap();
 }
