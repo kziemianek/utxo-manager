@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use std::{io, thread};
 
 pub use tui::backend::Backend;
-use tui::widgets::{ListItem, ListState};
+use tui::widgets::{ListState};
 
 use crate::cli::read_cli;
 use crate::ui::cleanup;
@@ -52,11 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut utxo_list_state = ListState::default();
 
     loop {
-        let list_items: Vec<ListItem> = unspents
-            .iter()
-            .map(|u| ListItem::new(u.txid.to_owned()))
-            .collect();
-        terminal.draw(|f| ui::ui(f, list_items, &mut utxo_list_state))?;
+        terminal.draw(|f| ui::ui(f, &unspents, &mut utxo_list_state))?;
 
         match rx.recv()? {
             AppEvent::Input(event) => match event.code {

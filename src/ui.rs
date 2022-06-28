@@ -4,6 +4,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::event::DisableMouseCapture;
 use crossterm::event::EnableMouseCapture;
 
+use crate::utxo::Unspent;
 use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use std::io;
@@ -31,7 +32,8 @@ pub fn cleanup(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<
     terminal.show_cursor()
 }
 
-pub fn ui<B: Backend>(f: &mut Frame<B>, items: Vec<ListItem>, list_state: &mut ListState) {
+pub fn ui<B: Backend>(f: &mut Frame<B>, unspents: &Vec<Unspent>, list_state: &mut ListState) {
+    let items: Vec<ListItem> = unspents.iter().map(|u| ListItem::from(u)).collect();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(100)].as_ref())
@@ -47,4 +49,10 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, items: Vec<ListItem>, list_state: &mut L
         .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
         .highlight_symbol(">>");
     f.render_stateful_widget(list, chunks[0], list_state);
+}
+
+impl<'a> From<&Unspent> for ListItem<'a> {
+    fn from(unspent: &Unspent) -> Self {
+        ListItem::new(unspent.txid.to_owned())
+    }
 }
