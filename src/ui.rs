@@ -1,9 +1,11 @@
 use crossterm::execute;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
-};
+
+use crossterm::event::DisableMouseCapture;
+use crossterm::event::EnableMouseCapture;
+
+use crossterm::terminal::EnterAlternateScreen;
+use crossterm::terminal::LeaveAlternateScreen;
 use std::io;
 use std::io::Stdout;
 use tui::backend::{Backend, CrosstermBackend};
@@ -19,7 +21,7 @@ pub fn setup(mut stdout: Stdout) -> io::Result<Terminal<CrosstermBackend<Stdout>
     Terminal::new(backend)
 }
 
-pub fn cleanup(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
+pub fn cleanup(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),

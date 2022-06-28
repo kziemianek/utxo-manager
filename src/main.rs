@@ -1,22 +1,16 @@
 use std::sync::mpsc;
-use std::{io, thread};
-
-use crossterm::execute;
-use crossterm::terminal::disable_raw_mode;
-
 use std::time::{Duration, Instant};
+use std::{io, thread};
 
 pub use tui::backend::Backend;
 use tui::widgets::{ListItem, ListState};
 
 use crate::cli::read_cli;
-use crossterm::event;
-use crossterm::event::DisableMouseCapture;
-
+use crate::ui::cleanup;
 use crate::utxo::{get_unspents, lock_unspent};
+use crossterm::event;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
-use crossterm::terminal::LeaveAlternateScreen;
 
 mod app;
 mod cli;
@@ -67,20 +61,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match rx.recv()? {
             AppEvent::Input(event) => match event.code {
                 KeyCode::Char('q') => {
-                    disable_raw_mode()?;
-                    execute!(
-                        terminal.backend_mut(),
-                        LeaveAlternateScreen,
-                        DisableMouseCapture
-                    )?;
-                    terminal.show_cursor()?;
+                    cleanup(&mut terminal)?;
                     break;
                 }
                 KeyCode::Down => {
                     let selected = utxo_list_state.selected();
                     match selected {
                         Some(idx) => {
-                            let mut next_idx;
+                            let next_idx;
                             if idx == unspents.len() {
                                 next_idx = 0;
                             } else {
@@ -96,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let total_items = unspents.len();
                     match selected {
                         Some(idx) => {
-                            let mut next_idx;
+                            let next_idx;
                             if idx == 0 {
                                 next_idx = unspents.len();
                             } else {
@@ -123,6 +111,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     thread::sleep(Duration::from_millis(5000));
 
     // restore terminal
-    ui::cleanup(terminal)?;
+    cleanup(&mut terminal)?;
     Ok(())
 }
