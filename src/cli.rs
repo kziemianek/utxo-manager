@@ -1,4 +1,5 @@
-use crate::Options;
+use crate::app;
+use crate::app::Options;
 use clap::{App, Arg, ArgMatches};
 
 pub fn read_cli() -> Options {
